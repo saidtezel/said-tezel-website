@@ -28,6 +28,16 @@ module.exports = {
     ],
   },
   plugins: [
+    `gatsby-plugin-sitemap`,
+    `gatsby-plugin-netlify`,
+    {
+      resolve: "gatsby-plugin-google-tagmanager",
+      options: {
+        id: "GTM-KM77VQR",
+        includeInDevelopment: false,
+        defaultDataLayer: { platform: "gatsby" },
+      },
+    },
     {
       resolve: "@narative/gatsby-theme-novela",
       options: {

@@ -6,12 +6,16 @@
   "scripts": {
     "build": "gatsby build",
     "dev": "gatsby develop",
+    "serve": "gatsby serve",
     "clean": "gatsby clean"
   },
   "dependencies": {
     "@narative/gatsby-theme-novela": "^0.*",
     "gatsby": "^2.13.41",
+    "gatsby-plugin-google-tagmanager": "^2.1.23",
     "gatsby-plugin-manifest": "^2.2.4",
+    "gatsby-plugin-netlify": "^2.1.31",
+    "gatsby-plugin-sitemap": "^2.2.25",
     "react": "^16.8.6",
     "react-dom": "^16.8.6"
   }
