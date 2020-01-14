@@ -1,0 +1,11 @@
+- name: Saïd Tezel
+  bio: |
+    I'm a freelance data analyst and frontend developer based in London.
+    I dabble with Python, JavaScript and SQL.
+  avatar: ./avatars/dennis-brotzky.jpg
+  slug: said-tezel
+  social:
+    - url: https://github.com/saidtezel
+    - url: https://linkedin.com/saidtezel
+    - url: https://instagram.com/said_tezel
+  featured: true

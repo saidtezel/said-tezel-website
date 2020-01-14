@@ -1,0 +1,175 @@
+---
+author: Saïd Tezel
+date: 2018-09-20 20:44:24+00:00
+slug: export-instagram-data-python-mysql
+title: Simple Way To Export Instagram Data Using Python
+---
+
+There was a time you used to be able to easily get access to Facebook's API, harvest data and do anything you want with it. It was so good in fact that it caused a [global tragedy of stolen information](https://www.bbc.co.uk/news/topics/c81zyn0888lt/facebook-cambridge-analytica-data-scandal). Now, however, Facebook is being extra stringent with who has access to their data.
+
+One of the victims of this was their Instagram API. Now, if you are looking to export and analyse your Instagram data; you'll either need to go to authorised 3rd party social data analysis tools, or go the extra mile and try to convince Facebook of your innocence by sending a screencast of exactly what your app is supposed to do.
+
+Confused about all the requirements to get access to Facebook API, while researching, I've stumbled upon a rather simple solution. Instagram's web app is built with [React](https://reactjs.org/) (another Facebook innovation); which exposes the data displayed on page through a Javascript variable. This eliminates the need for you to manually go in and write a parser to pick up the right information on page because all the information is already loaded on the `_sharedData` variable.
+
+In this post, I'll show how to write a simple Python script that can periodically fetch data for your profile (followers) and your latest posts; and write them to a MySQL database for analysis.
+
+---
+
+## Install Necessary Packages
+
+For this tasks we'll just need three Python modules. Requests to make HTTP requests from Python, Beautiful Soup to parse the Instagram web app and fetch the `_sharedData` variable, and Pymysql to connect to the database and write the latest data.
+
+Install the necessary packages with pip commands:
+
+```shell
+pip install requests beautifulsoup4 pymysql
+```
+
+## Write An Instagram Scraper Object
+
+On a Python file, initially import the necessary modules we'll be using. In addition to importing the packages we've just installed, we'll also need other packages like `datetime` and `json`.
+
+```python
+from random import choice
+from datetime import datetime
+import json
+import requests
+from bs4 import BeautifulSoup
+import pymysql
+import pymysql.cursors
+```
+
+Next, we'll define a `USER_AGENTS` variable which will hold a few options for mocking a browser request to the Instagram web app. The script will randomly choose one of the values you'll define here. This is to minimise the risk for getting blocked of making requests to the website on the assumption that we're spamming.
+
+```python
+USER_AGENTS = ['Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/65.0.3325.181 Safari/537.36']
+```
+
+Next up, we'll write an InstagramScraper object, which will accept the string url for our destination page (i.e link to the Instagram profile page). The InstagramScraper object will expose two methods, `page_metrics` and `post_metrics`.
+
+Once we initiate an object, we'll be able to call either of these methods to get the page/post data we want.
+
+```python
+class InstagramScraper:
+    def __init__(self, url, user_agents=None):
+        self.url = url
+        self.user_agents = user_agents
+
+    def __random_agent(self):
+        if self.user_agents and isinstance(self.user_agents, list):
+            return choice(self.user_agents)
+        return choice(USER_AGENTS)
+
+    def __request_url(self):
+        try:
+            response = requests.get(
+                        self.url,
+                        headers={'User-Agent': self.__random_agent()})
+            response.raise_for_status()
+        except requests.HTTPError:
+            raise requests.HTTPError('Received non-200 status code.')
+        except requests.RequestException:
+            raise requests.RequestException
+        else:
+            return response.text
+    @staticmethod
+    def extract_json(html):
+        soup = BeautifulSoup(html, 'html.parser')
+        body = soup.find('body')
+        script_tag = body.find('script')
+        raw_string = script_tag.text.strip().replace('window._sharedData =', '').replace(';', '')
+        return json.loads(raw_string)
+
+    def page_metrics(self):
+        results = {}
+        try:
+            response = self.__request_url()
+            json_data = self.extract_json(response)
+            metrics = json_data['entry_data']['ProfilePage'][0]['graphql']['user']
+        except Exception as e:
+            raise e
+        else:
+            for key, value in metrics.items():
+                if key != 'edge_owner_to_timeline_media':
+                    if value and isinstance(value, dict):
+                        value = value['count']
+                        results[key] = value
+        return results
+    def post_metrics(self):
+        results = []
+        try:
+            response = self.__request_url()
+            json_data = self.extract_json(response)
+            metrics = json_data['entry_data']['ProfilePage'][0]['graphql']['user']['edge_owner_to_timeline_media']['edges']
+        except Exception as e:
+            raise e
+        else:
+            for node in metrics:
+                node = node.get('node')
+                if node and isinstance(node,dict):
+                    results.append(node)
+        return results
+```
+
+Now that we have defined our object class, we can now create a scraper object and call either one of the methods.
+
+```python
+// Define the URL for the profile page.
+url = 'https://www.instagram.com/said_tezel/?hl=en'
+// Initiate a scraper object and call one of the methods.
+instagram = InstagramScraper(url)
+post_metrics = instagram.post_metrics()<br><br>
+``
+
+Now a list of most recent 12 posts, together with their metrics, are assigned to the `post_metrics` variable. If you wish, you can issue a `print(post_metrics)` command here to review the data.
+
+Next up, we will push the key post metrics; such as the update time (when we fetch this data), post ID, post time, likes, comments and direct image link to a MySQL database. Before you go on, make sure that you have created a MySQL table with the necessary fields set up. If you need any help with setting up a database and table, see the [MySQL documentation](https://dev.mysql.com/doc/refman/8.0/en/creating-database.html).
+
+## Updating MySQL Table With Data
+
+Within the Python script, we'll start a connection to the MySQL table, iterate through all the post metrics we have defined at `post_metrics` and create new rows at the table.
+
+```python
+// First, create a connection to your MySQL server.
+// Make sure you change the host, user, password and db values.
+connection = pymysql.connect(host=SERVER_URL,
+                             user=DB_USER,
+                             password=DB_PASSWORD,
+                             db=DB_TABLE,
+                             charset='utf8mb4',
+                             cursorclass=pymysql.cursors.DictCursor)
+```
+
+Next up, we will iterate through all single post metrics and write them to the database.
+
+```python
+// Set a datetime object to label the update time for the data in the database.
+update_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
+// Iterate through the metrics and write them to database.
+for m in metrics:
+    i_id = str(m['id'])
+    i_post_time = datetime.fromtimestamp(m['taken_at_timestamp']).strftime('%Y-%m-%d %H:%M:%S')
+    i_likes = int(m['edge_liked_by']['count'])
+    i_comments = int(m['edge_media_to_comment']['count'])
+    i_media = m['display_url']
+    i_video = bool(m['is_video'])
+
+    with connection.cursor() as cursor:
+        sql = "INSERT INTO `data` (`update_time`, `post_id`, `post_time`, `post_likes`, `post_comments`, `post_media`, `post_is_video`) VALUES (%s, %s, %s, %s, %s, %s, %s)"
+        cursor.execute(sql, (update_time, i_id, i_post_time, i_likes, i_comments, i_media, i_video))
+    connection.commit()
+connection.close()
+```
+
+That's it! Now every time you run this script, it will automatically fetch your latest post metrics and collect them in a MySQL database. If you want to automate this process, however, you might want to set up a cron job on your server in order to update the database at select intervals.
+
+If you'd like to create a cron job to update the data every hour, for example, simply open the crontab edit console via `crontab -e` on your server, and add the following line at the bottom of the edit screen. Make sure you correctly define the path to your Python script file.
+
+```shell
+0 * * * * PATH_TO_YOUR_PYTHON_SCRIPT
+
+You can file the full script file with everything included on my [Github repo](https://github.com/saidtezel/instagram-data-collector).
+
+
+
