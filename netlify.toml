@@ -1,0 +1,8 @@
+[[redirects]]
+  from = "http://saidtezel.netlify.com"
+  to = "https://saidtezel.com"
+  force = true
+
+  from = "https://saidtezel.netlify.com"
+  to = "https://saidtezel.com"
+  force = true
