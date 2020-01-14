@@ -1,12 +1,12 @@
 module.exports = {
   siteMetadata: {
-    title: `Saïd Tezel – Data Analyst, Front-End Developer Based in London`,
+    title: `Saïd Tezel – Data Analyst and Developer Based in London`,
     name: `Saïd Tezel`,
     siteUrl: `https://saidtezel.com`,
     description: `This is my description that will be used in the meta tags and important for search results`,
     hero: {
-      heading: `Welcome to Novela, the simplest way to start publishing with Gatsby.`,
-      maxWidth: 800,
+      heading: `Perspectives on marketing, data and programming.`,
+      maxWidth: 652,
     },
     social: [
       {
