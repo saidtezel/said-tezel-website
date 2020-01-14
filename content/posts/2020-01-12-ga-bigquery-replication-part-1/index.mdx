@@ -1,17 +1,22 @@
 ---
 author: Saïd Tezel
-date: 2020-01-10
-slug: ga-bigquery-replication-part-3
+date: 2020-01-12
+slug: ga-bigquery-replication-part-1
 hero: ./images/ga-bigquery-replication.jpg
-title: Replicate Google Analytics Data on BigQuery – Part 3
+title: Replicate Google Analytics Data on BigQuery – Part 1
 ---
 
 This is a three-part guide on how to replicate Google Analytics data on Google BigQuery, using [singer.io](https://singer.io)'s taps and targets that helps orchestrate the replication process.
 
+### Tools Used
+- [Singer.io](https://github.com/singer-io): Open source replication framework
+- [Google Analytics Tap](https://github.com/saidtezel/tap-google-analytics): Python package to extract GA data
+- [Google BigQuery Target](https://github.com/saidtezel/target-google-bigquery): Python package to load data into BigQuery
+
 ### Table of Contents
 - Setting up local environment ** (This guide) **
 - Dockerising the setup ([Part 2](/ga-bigquery-replication-part-2))
-- Setting up replication schedule on Kubernetes ([Part 3](/ga-bigquery-replication-part-3))
+- Setting up replication schedule on Kubernetes (Coming soon)
 
 ---
 
@@ -27,7 +32,7 @@ It works based on the simple premise of facilitating the data flow between the d
 
 Singer taps are Python packages that extract the required data from a specific data source's API and standardising the output for Singer pipeline.
 
-Singer targets are Python packages that write the standardised output from the tap and writing it to the destination database.
+Singer targets are Python packages that write the standardised output from the tap to the destination database.
 
 In this guide, I will set up a pipeline to extract data from Google Analytics (using a Singer tap) and feeding that into Google BigQuery (using a Singer target).
 
@@ -123,7 +128,7 @@ env-tap/bin/tap-google-analytics --config tap-config.json | env-tap/bin/target-g
 
 Once the command is triggered, you should see the data extraction process.
 
-![](/images/ga-bigquery-tap-first-run.gif)
+![](./images/ga-bigquery-tap-first-run.gif)
 
 ## Pulling Incremental Data
 
@@ -143,118 +148,14 @@ env-tap/bin/tap-google-analytics --config tap-config.json | env-tap/bin/target-g
 
 Notice that we are asking the final output of the pipe operation to be written to a local `state.json` file.
 
-When we run the pipe like this, and let it successfully finish, it will have created a new `state.json` file in the project directory. In the subsequent runs, we simply pass this filename as an input parameter.
+When we run the pipe like this, and let it successfully finish, it will have created a new `state.json` file in the project directory. In the subsequent runs, we simply pass this `state.json` file as an input parameter.
 
 ```shell
 env-tap/bin/tap-google-analytics --config tap-config.json --state state.json | env-tap/bin/target-google-bigquery --config target-config.json > state.json
 ```
 
-```shell
-#!/bin/sh
+If your date range is large and your website has a lot of traffic, the initial replication might take a while. Once the process is complete, you can check your BigQuery dateset to make sure that everything's in order.
 
-if [ -z "$BUCKET_FOLDER" ]
-then
-    echo "Google Cloud Storage folder for the container is not defined. Exiting..."
-    exit 1
-fi
+## Next Steps
 
-export GOOGLE_APPLICATION_CREDENTIALS=$PWD/service-account.json
-export STORAGE_BUCKET=gs://found-data-pipelines/$BUCKET_FOLDER
-
-gcloud auth activate-service-account --key-file=$GOOGLE_APPLICATION_CREDENTIALS
-
-STATE=""
-
-# Attempt to download state.json from Google Cloud Storage. If it exists, pass it into the tap as an argument.
-gsutil cp $STORAGE_BUCKET/state.json .
-if [ -e state.json ]; then
-  STATE="--state state.json"
-fi
-
-# Download the necessary config files for tap/target from GCS. Exit the process if failed.
-gsutil cp $STORAGE_BUCKET/ga-config.json .
-if [ -e ga-config.json ]; then
-  echo "Loaded ga-config.json file from GCS."
-else
-  echo "Could not find a ga-config.json file in the GCS bucket. Exiting..."
-  exit 1
-fi
-
-gsutil cp $STORAGE_BUCKET/ga-reports.json .
-if [ -e ga-reports.json ]; then
-  echo "Loaded ga-reports.json file from GCS."
-else
-  echo "Could not find a ga-reports.json file in the GCS bucket. Exiting..."
-  exit 1
-fi
-
-gsutil cp $STORAGE_BUCKET/bq-config.json .
-if [ -e bq-config.json ]; then
-  echo "Loaded bq-config.json file from GCS."
-else
-  echo "Could not find a ga-config.json file in the GCS bucket. Exiting..."
-  exit 1
-fi
-
-gsutil cp $STORAGE_BUCKET/service-account-target.json .
-if [ -e service-account-target.json ]; then
-  echo "Loaded service-account-target.json file from GCS."
-else
-  echo "Could not find a ga-config.json file in the GCS bucket. Exiting..."
-  exit 1
-fi
-
-# Create a temp file to hold the state data
-OUTPUT=$(mktemp)
-
-# Run the main function to run Singer pipeline, writing the output to the temp file
-env-tap/bin/tap-google-analytics --config ga-config.json $STATE | env-target/bin/target-bigquery --config bq-config.json | tee $OUTPUT
-# env-tap/bin/tap-google-analytics --config ga-config.json $STATE
-
-# If the previous function was successful, write/update the temp file to Google Cloud Storage
-if [ $? -eq 0 ]; then
-  # Writes the function output to a temp file in storage
-  tail -1 $OUTPUT > state.json.tmp
-
-  # Prettifies the JSON file and discards the output
-  python -mjson.tool state.json.tmp  > /dev/null
-
-  if [ $? -eq 0 ]; then
-    gsutil cp state.json.tmp $STORAGE_BUCKET/state.json
-    rm state.json.tmp
-    rm state.json
-  else
-    echo "Not updating state.json. Invalid JSON"
-    exit 1
-  fi
-else
-  echo "Not updating state.json due to error."
-  exit 1
-fi
-
-rm ga-config.json
-rm ga-reports.json
-rm bq-config.json
-rm service-account-target.json
-```
-
-```dockerfile
-FROM python:3.8-slim
-RUN apt-get update && \
-    apt-get install -y git gcc curl && \
-    rm -rf /var/lib/apt/lists/*
-
-RUN curl -sSL https://sdk.cloud.google.com | bash
-ENV PATH="$PATH:/root/google-cloud-sdk/bin"
-
-# Change the container directory and copy all the files here.
-WORKDIR /singer
-COPY . .
-
-# Install tap/target packages in their respective virtual environments
-RUN python -m venv env-tap && env-tap/bin/pip install git+https://github.com/saidtezel/tap-google-analytics.git --no-cache-dir
-RUN python -m venv env-target && env-target/bin/pip install git+https://github.com/saidtezel/target-google-bigquery.git --no-cache-dir
-
-RUN chmod u+x entrypoint.sh
-CMD [ "./entrypoint.sh" ]
-```
+Now that we have successfully managed to create the pipeline, the next step is to automate it. You can check [part 2](/ga-bigquery-replication-part-2) for the next steps.

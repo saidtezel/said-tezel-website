@@ -1,6 +1,6 @@
 ---
 author: Saïd Tezel
-date: 2020-01-10
+date: 2020-01-12
 slug: ga-bigquery-replication-part-2
 hero: ./images/ga-bigquery-replication.jpg
 title: Replicate Google Analytics Data on BigQuery – Part 2
@@ -18,11 +18,13 @@ This is a three-part guide on how to replicate Google Analytics data on Google B
 
 - Setting up local environment ([Part 1](/ga-bigquery-replication-part-1))
 - Dockerising the setup ** (This guide) **
-- Setting up replication schedule on Kubernetes ([Part 3](/ga-bigquery-replication-part-3))
+- Setting up replication schedule on Kubernetes (Coming soon)
 
 ---
 
-In the part 1 of this tutorial, we have set up our pipeline to run locally and replicate our Google Analytics data into a BigQuery dataset. This part will focus on dockerising the replication process so that we can easily run or deploy it as a containerised application.
+In the part 1 of this tutorial, we have set up our pipeline to run locally and replicate our Google Analytics data into a BigQuery dataset.
+
+This part will focus on dockerising the replication process so that we can easily run or deploy it as a containerised application.
 
 So far, we should have the following folders/files in our project dir:
 
@@ -139,7 +141,7 @@ When built, this Dockerfile will:
 - Install our tap and target into their own virtualenvs
 - Run the `entrypoing.sh` file, which also runs the pipeline and stores the `state.json` file.
 
-We can now go ahead and build the Docker image with the following command.
+We can now build the Docker image with the following command.
 
 ```shell
 docker build -t ga-bigquery-replication:latest .
@@ -149,3 +151,18 @@ It might take a while to build the image, but once it's complete, we should run 
 
 ![Docker image](./images/docker-image.png)
 
+If you see that the Docker image has been successfully created, we can do a test run of the now dockerised pipeline with the following command:
+
+```shell
+docker run --rm ga-bigquery-replication:latest
+```
+
+![Docker container in action](./images/docker-container-running.gif)
+
+If everything goes according to the plan, running the container will sync the data to BigQuery, create an up-to-date `state.json` file at the end of the run, and upload that file to our Google Cloud Storage bucket for persistent storage.
+
+In this context, re-running the container with the same command will no longer sync the date from the `start_date` we definied within `tap-config.json`, but instead will rely on the latest sync date from `state.json`, which would be today.
+
+## Next Steps
+
+In the third and last part of this tutorial, we will look into how we can utilise the dockerised pipeline to develop an automation in a simple Kubernetes cluster.

@@ -3,9 +3,9 @@ module.exports = {
     title: `Saïd Tezel – Data Analyst and Developer Based in London`,
     name: `Saïd Tezel`,
     siteUrl: `https://saidtezel.com`,
-    description: `This is my description that will be used in the meta tags and important for search results`,
+    description: `Perspectives on data, programming and digital marketing from Saïd Tezel`,
     hero: {
-      heading: `Perspectives on marketing, data and programming.`,
+      heading: `Perspectives on data, programming and digital marketing.`,
       maxWidth: 652,
     },
     social: [
@@ -55,7 +55,7 @@ module.exports = {
       resolve: `gatsby-plugin-manifest`,
       options: {
         name: `Saïd Tezel`,
-        short_name: `Novela`,
+        short_name: `Saïd Tezel`,
         start_url: `/`,
         background_color: `#fff`,
         theme_color: `#fff`,
