@@ -82,6 +82,7 @@ exports.handler = function(event, context, callback) {
   if (event.httpMethod === 'OPTIONS') { // CORS (required if you use a different subdomain to host this function, or a different domain entirely)
     done()
   } else if ((httpMethod === 'GET' || httpMethod === 'POST') && isOriginWhitelisted) { // allow GET or POST, but only for whitelisted domains
+    console.info('proxying request to GA.')
     proxyToGoogleAnalytics(event, done)
   } else {
     callback('Not found')
