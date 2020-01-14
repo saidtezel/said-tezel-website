@@ -3,6 +3,12 @@
   to = "https://saidtezel.com"
   force = true
 
+[[redirects]]
   from = "https://saidtezel.netlify.com"
+  to = "https://saidtezel.com"
+  force = true
+
+[[redirects]]
+  from = "https://www.saidtezel.com"
   to = "https://saidtezel.com"
   force = true
