@@ -6,6 +6,7 @@ module.exports = {
     description: `Perspectives on data, programming and digital marketing from Saïd Tezel`,
     hero: {
       heading: `Perspectives on data, programming and digital marketing.`,
+      subheading: `Testing subheading`,
       maxWidth: 652,
     },
     social: [
